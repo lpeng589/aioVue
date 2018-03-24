@@ -1,0 +1,10 @@
+const stockReport = r => require(['../views/stockreport/stockReport.vue'], r)
+
+
+
+
+export default [
+  // 库存查询
+  {path: '/stockreport/stockReport', component: stockReport, name: 'stockReport'},
+
+]

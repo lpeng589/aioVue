@@ -1,0 +1,485 @@
+<template>
+	<div class="page_salesOrderAdd">
+		<mt-header title="添加销售订单" fixed>
+   		 	<div slot="left">
+     			 <mt-button icon="back" @click="retSalesOrderListPage()">返回</mt-button>
+   			 </div>
+   			 <div slot="right"  @click="saveOrder()">
+				<mt-button>
+					保存			
+				</mt-button>
+			</div>
+  		</mt-header>
+  		<div class="order_from">
+		  <div class="createInfo">
+		    <img src="../../assets/man.png" alt="">
+		    <div class="creater">
+		      <p class="createName">{{ name }}</p>
+		      <p class="flowNodeName">开始</p>
+		    </div>
+		  </div>
+		  <mt-navbar v-model="selected">
+		    <mt-tab-item id="1">订单信息</mt-tab-item>
+		    <mt-tab-item id="2">商品明细</mt-tab-item>
+		  </mt-navbar>
+		  <mt-tab-container v-model="selected">
+			  <mt-tab-container-item id="1" class="tblOrder">
+			    <mt-field  label="订单编号" placeholder="请输入编号" v-model="BillNo" readonly="true" ></mt-field>
+			    <mt-field  label="订单日期" placeholder="请输入日期" v-model="BillDate" readonly="true" ></mt-field>
+			   <!--  <mt-field  label="客户名称" placeholder="请输入客户" v-model="ComFullName" @click="selectClient()" ></mt-field> -->
+			   <a data-v-4f7ac5e4="" class="mint-cell mint-field" @click="selectClient()">
+			   	<div class="mint-cell-left"></div> 
+			   	<div class="mint-cell-wrapper">
+			   		<div class="mint-cell-title"><!----> 
+			   			<span class="mint-cell-text">客户名称</span> <!---->
+			   		</div> 
+			   		<div class="mint-cell-value">
+			   			<input placeholder="请输选择客户" type="text" class="mint-field-core" v-model="ComFullName" readonly="true"> 
+			   			<div class="mint-field-clear" style="display: none;">
+			   				<i class="mintui mintui-field-error"></i>
+			   			</div> 
+			   			<span class="mint-field-state is-default">
+			   				<i class="mintui mintui-field-default"></i>
+			   			</span> 
+			   			<div class="mint-field-other"></div>
+			   		</div>
+			   	</div> 
+			   	<div class="mint-cell-right"></div> <!---->
+			   </a>
+			    <mt-field  label="订单金额" placeholder="请输入金额" v-model="TotalAmount"></mt-field>
+			  <!--   <mt-field  label="收货地址" placeholder="请输入地址" type="textarea" rows="4" v-model="ShippingAddress"></mt-field>   -->
+			    <mt-field  label="备注" placeholder="请输入备注" type="textarea" rows="4" v-model="Remark"></mt-field>
+		
+			  </mt-tab-container-item>
+			  <mt-tab-container-item id="2" class="tblOrderDet">
+			  	<div class="good_item" v-for="(item,index) in TABLENAME_tblSalesOrderDet">
+			  		<div class="goodNum">
+			  			<p>产品{{index + 1}}</p>
+			  			<span class="fr" @click="delDet(index,item)">删除</span>
+			  		</div>
+			  		<ul>
+			  			<li class="goodName" @click="$router.push({name: 'goodList'})">
+			  				<div>
+			  				  <span>{{ item.GoodsNumber }}</span>
+			  				  <span>{{ item.GoodsFullName }}</span>
+			  				</div>
+			  				<p>{{ item.GoodsSpec }}</p>
+			  			</li>
+			  			<li class="goodprice"><label>单价</label><div><input type="number" v-model="item.Price" @change="changePrice(item)"></div></li>
+			  			<li class="goodCount">
+			  				<label>数量</label>
+			  				<div>
+			  					<span class="fl" @click="addQty(item)">+</span>
+			  					<input type="number" min="1" max="100000" v-model="item.Qty">
+			  					<span class="fr" @click="delQty(item)">-</span>
+			  				</div>
+			  			</li>
+			  			<li class="goodTotle"><label>小计</label><span>{{ item.TaxAmount }}</span></li>
+			  		</ul>
+			  	</div>
+			  	<div class="addGood" @click="$router.push({name: 'goodList',params: {retPage: 'salesOrderAdd'}})"><img src="../../assets/goto.png"></div>		  
+			  </mt-tab-container-item>
+		  </mt-tab-container>
+  		</div>
+	</div>
+</template>
+<script type="text/javascript">
+import { mapState, mapActions } from 'vuex'
+import { Header, Button, Navbar, TabItem, TabContainer, TabContainerItem, Cell, Field, Toast, Indicator, MessageBox } from 'mint-ui'
+export default {
+  components: {
+    'mt-header': Header,
+    'mt-button': Button,
+    'mt-navbar': Navbar,
+    'mt-tab-item': TabItem,
+    'mt-tab-container': TabContainer,
+    'mt-tab-container-item': TabContainerItem,
+    'mt-cell': Cell,
+    'mt-field': Field
+  },
+  computed: {
+	...mapState({
+		userID: state => state.user.id,
+		name: state => state.user.name,
+		titleId: state => state.user.titleId,
+		department: state => state.user.departmentName
+	}),
+	tableName () {
+      return 'tblSalesOrder' // 订货申请表
+    },
+    goodCodes (){
+    	return this.$route.params.goodCodes
+    },
+    queryGoodByCode_Alert () { // 根据 code 查商品弹窗
+    	return 'model_queryGoodByCode' 
+    },
+    getClientInfo_Alert() { // 根据 EmployeeID 获取客户信息
+    	return 'model_getClientInfo'
+    },
+    optType() {
+    	return this.$route.params.optType
+    },
+    company() {
+    	return this.$route.params.company
+    }
+  },
+  data () {
+   return {
+   	  selected: '1',
+      username: '',
+      email: '',
+      clientLevel: '', //获取客户级别,根据级别获取对应的商品价格
+      DetGoodsCodeStr: '',
+
+      // 主表数据
+      BillNo: '', 
+      BillDate: '',
+      CompanyCode: '', 
+      ComFullName: '', 
+      EmployeeID: '', 
+      District: '', // 地区
+      subAccount: '01234',
+      ShippingAddress: '', // 送货地址
+      DepartmentCode: '', 
+      createBy: '', 
+      TotalAmount: 0,
+      TotalTaxAmount: '0',
+      Remark: '',
+
+      // 明细表数据
+  	  TABLENAME_tblSalesOrderDet: [], 
+      opType: 'add'
+    }
+  },
+  watch: {
+  	company(newVal){
+  		if(newVal != undefined){
+  			//console.log(newVal)
+  			this.CompanyCode = newVal.CompanyCode
+  			this.ComFullName = newVal.ComFullName
+  			this.District = newVal.District
+  			this.clientLevel = newVal.clientlevel
+  		}
+  	},
+  	$route() {
+
+  		this.initSaleOrderDet() // 初始化商品明细表
+  		let path = this.$route.path
+
+  	},
+  	TotalAmount() {
+  		this.TotalTaxAmount = this.TotalAmount
+  	},
+  	optType(newVal) {
+  		if(newVal == 'add'){
+  			this.saveOrderPre()
+  		}
+  	}
+  },
+  methods: {
+  	...mapActions([ 'add', 'addPre', 'popupSelect', 'getSessEmp' ]),
+  	selectClient() {
+  		this.$router.push({name: 'clientList', params: {retPage: 'salesOrderAdd'}})
+  	},
+  	retSalesOrderListPage() {
+  		this.saveOrderPre()
+  		//console.log(this.DetGoodsCodeStr)
+  	    this.$router.push({ name: 'salesOrderList' })
+  	  
+  	},
+  	saveOrderPre() { // 初始化订单主表信息
+  		//console.log('saveOrderPre')
+  		this.TABLENAME_tblSalesOrderDet = []
+  		this.TotalAmount = 0
+  		this.Remark = ''
+  		this.DetGoodsCodeStr = ''
+
+  		let postDate = { tableName: this.tableName }
+  		this.addPre(postDate).then((obj) => {
+  			//console.log(obj)
+  			let values = obj.values
+  			this.ShippingAddress = values.ShippingAddress
+  			let fieldList = obj.fieldList
+  			fieldList.forEach((val,index) => {
+  				if(val.fieldName == 'BillNo'){
+  					this.BillNo = val.defaultValue
+  					//console.log(this.BillNo)
+  				}else if (val.fieldName == 'BillDate'){
+  					this.BillDate = val.defaultValue
+  				}else if (val.fieldName == 'createBy'){
+  					this.createBy = val.defaultValue
+  				}
+  			})
+  		})
+  	},
+  	changePrice(item) {
+  		console.log(item.Price)
+  		let oldTaxAmount = item.TaxAmount
+  		item.TaxAmount = item.Price * item.Qty
+  		item.Amount = item.TaxAmount 
+  		this.TotalAmount += (item.TaxAmount - oldTaxAmount) 
+  	},
+  	delDet(index,item) {
+  		this.TotalAmount -= this.TABLENAME_tblSalesOrderDet[index].TaxAmount
+  		this.TABLENAME_tblSalesOrderDet.splice(index,1)
+  		if(item.GoodsCode != undefined){
+  			this.DetGoodsCodeStr = this.DetGoodsCodeStr.replace(item.GoodsCode,'')
+  		}
+  	},
+  	addQty(item) { // 增加商品数量
+  		let oldTaxAmount = item.TaxAmount
+		item.Qty += 1
+		item.TaxAmount = item.Qty * item.Price
+		item.Amount = item.TaxAmount
+		this.TotalAmount += (item.TaxAmount - oldTaxAmount) 
+
+  	},
+  	delQty(item) { // 减少商品数量
+  		let oldTaxAmount = item.TaxAmount
+		item.Qty = item.Qty > 0 ? item.Qty- 1 : item.Qty
+		item.TaxAmount = item.Qty * item.Price
+		item.Amount = item.TaxAmount
+		this.TotalAmount -= (oldTaxAmount - item.TaxAmount)
+
+  	},
+  	saveOrder() { // 保存订单 提交数据到后台
+  		MessageBox.confirm('确认保存?').then(action => {
+  		let values = this.$data
+  		//console.log(values)
+  		values = window.JSON.stringify(values)
+  		let postDate = { tableName: this.tableName, values }
+  		//console.log(postDate)
+	    this.add(postDate).then((obj) => {
+	    	if(obj.keyId != undefined){
+	    		Indicator.close()
+        		Toast({message: '保存成功', duration: 1500})
+
+        		setTimeout(()=>{
+        			this.$router.push({
+			          name: 'salesOrderDetail',
+			          params: {
+			            tableName: this.tableName,
+			            keyId: obj.keyId,
+			            ModuleId: '1',
+			            workFlowStatus: '已审核',
+			            optType: 'intoDetail'
+			          }
+			        })
+        		},2000)
+
+
+	    	}
+	    	//console.log(obj)
+	    }).catch(({message}) => {
+        	Indicator.close()
+        	Toast({message: message, duration: 2000})
+      })
+      })
+  	},
+  	initSaleOrderDet() { //每次添加商品初始化商品信息
+  		let goodArr = this.goodCodes
+  		console.log(goodArr)
+  		if(goodArr != undefined && goodArr.length > 0 && goodArr != 0){
+  			var self = this
+  			goodArr.forEach((val,index) => {
+  				if(self.DetGoodsCodeStr.indexOf(val) == -1) {
+	  				let cond = {
+			          selectName: self.queryGoodByCode_Alert,
+			          extraParam: {
+			            GoodCode: val
+			          }
+			        }
+	  				self.popupSelect(cond).then((obj) => {
+	  					console.log(obj)
+
+	  					let Det = { GoodsNumber : obj[0].GoodsNumber, 
+	  								GoodsFullName : obj[0].GoodsFullName, 
+	  								GoodsSpec : obj[0].GoodsSpec,
+	  								GoodsCode : val,
+	  								Qty : 1,
+	  								Price : '',
+	  								TaxPrice : 0,
+	  								Amount : 0,
+	  								TaxAmount : 0
+	  							  }
+
+	  		/*			let good = obj[0]
+	  					let level = self.clientLevel
+	  					for( let g in good ) { //this.clientLevel
+	  						if(g == level){
+	  							Det.Price = good[g]
+	  							Det.TaxPrice = good[g]
+	  						}
+	  					}
+
+	  					Det.TaxAmount = Det.Qty * Det.Price
+	  					Det.Amount = Det.TaxAmount
+	  					this.TotalAmount += Det.TaxAmount*/
+
+	  					self.TABLENAME_tblSalesOrderDet.push(Det)
+  						
+	  					self.DetGoodsCodeStr += val+','
+	  				})
+  				}
+  			})
+  		
+  		}
+  	}
+  },
+  created() {
+  	this.saveOrderPre()
+  },
+  mounted() {	
+  	this.EmployeeID = this.userID
+
+  }
+}
+</script>
+<style lang="scss" scoped>
+$background-color: #F0F1F5;
+.page_salesOrderAdd {
+	background-color: $background-color;
+	height: 100%;
+	width: 100%;
+	.order_from {
+		position: fixed;
+		top: 40px;
+		width: 100%;
+		font-size: 15px;
+		height: 100%;
+		.mint-tab-item {
+			margin-bottom: 0px;
+		}
+		.createInfo {
+			width: 100%;
+			height: 50px;
+			background-color: white;
+			padding: 10px 20px;
+			img {
+				width: 50px;
+				height: 50px;
+			}
+			.creater {
+				display: inline-block;
+				width: 50px;
+				position: fixed;
+			    left: 85px;
+			    top: 52px;
+			    .createName {
+			    	margin-bottom: 5px;
+			    }
+
+			}
+		}
+		.mint-tab-container {
+	      position: relative;
+	      overflow: auto;
+	      height: 80%;
+	      .mint-tab-container-wrap {
+	      	.mint-field.is-textarea {
+	      		border-bottom: 1px solid #888;
+	      	}
+	      }
+	      div {
+	      	height: 100%
+	      }
+	      .tblOrderDet {
+	      	.addGood {
+	      		position: fixed;
+			    bottom: 5px;
+			    right: 38%;
+			    width: 60px;
+			    height: 60px;
+			    img {
+			    	width: 100%;
+			    }
+	      	}
+	      	.good_item {
+	      		border-bottom: 5px solid #b8bbbf;
+	      		.goodNum {
+	      			padding: 0px 15px;
+	      			height: 35px;
+	      			line-height: 35px;
+	      			p {
+	      				display: inline-block;
+	      			}
+	      		}
+	      		.goodName {
+	      			div {
+	      				height: 20px;
+	      			}
+	      			p {
+	      				display: inline-block;
+	      			}
+	      		}
+	      		.goodprice {
+	      			div {
+		      			display: inline-block;
+					    width: 81px;
+					    float: right;
+					    margin-right: 3px;
+					    input {
+					    	height: 25px;
+						    text-align: center;
+						    width: 100%;
+						    border: 1px solid #888;
+					    }
+	      			}
+	      		}
+	      		.goodCount {
+	      			div {
+	      				height: 25px;
+	      				width: 80px;
+	      				border: 1px solid #888;
+	      				display: inline-block;
+	      				float: right;
+                        margin-top: 9px;
+                        span {
+                        	display: inline-block;
+                        	border-left: 1px solid #888;
+                        	border-right: 1px solid #888;
+                        	width: 20px;
+                        	height: 25px;
+                        	text-align: center;
+                        	line-height: 25px;
+                        }
+                        input {
+                          width: 36px;
+					      border: none;
+					      float: left;
+					      height: 99%;
+					      text-align: center;
+                        }
+	      			}
+	
+	      		}
+	      		.goodDis {
+	      			input {
+		      			width: 50px;
+					    float: right;
+					    margin-top: 10px;
+					    border: 1px solid #888;
+					    height: 20px;
+					    text-align: center;
+	      			}
+	      		}
+	      		.goodTotle {
+	      			span {
+	      				float: right;
+	      			}
+	      		}
+	      		ul {
+	      			background-color: white;
+	      			li {
+	      				min-height: 40px;
+	      				border-bottom: 1px solid #DCDCDC;
+	      				line-height: 40px;
+	      				padding: 0px 15px;
+	      			}
+	      		}
+	      	}
+	      }
+		}
+	}
+}
+</style>

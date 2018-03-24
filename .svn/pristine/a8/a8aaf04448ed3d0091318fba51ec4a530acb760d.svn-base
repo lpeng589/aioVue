@@ -1,0 +1,452 @@
+<template>
+<div  class="page_stockreport">
+  <!-- 页头   start -->
+  <mt-header title="库存查询" fixed>
+    <div slot="left">
+      <mt-button icon="back" @click="$router.go(-1)">返回</mt-button>
+    </div>
+    <div slot="right">
+      <mt-button @click="OpenQueryPanal()">
+        筛选
+      </mt-button>
+    </div>
+  </mt-header>
+  <!-- 页头   end -->
+
+  <!-- 搜索栏   start -->
+  <mt-search v-model="mobileGoodsFullName" cancel-text="取消" placeholder="搜索"></mt-search> 
+
+  <!-- 订单列表   start -->
+  <div class="orderList page-loadmore-wrapper" ref="wrapper" :style="{ height: wrapperHeight + 'px' }">
+      <mt-loadmore :bottom-method="loadBottom" @bottom-status-change="handleBottomChange" :bottom-all-loaded="allLoaded" ref="loadmore">
+        <ul class="page-loadmore-list">
+          <li class="page-loadmore-listitem" index="orderDetail" v-for="(item, index) in dataList"  v-if="item.GoodsFullName != null && item.GoodsFullName != '' " @click="listData(item)">
+            <p><label>编号:</label><span>{{ item.GoodsNumber }}</span></p>
+            <p>
+              <label>名称:</label>
+              <span v-if="item.isCatalog == 0" class="GoodsFullName">{{ item.GoodsFullName }}</span>
+              <span v-if="item.isCatalog == 1" class="GoodsFullNameBlue">{{ item.GoodsFullName }}</span>
+            </p>
+            <p><label>规格:</label><span>{{ item.GoodsSpec }}</span></p>
+            <p class="stockQty">
+              <label>实际库存:</label>
+              <span>{{ item.lastQty | getBillNo }}</span>
+              <div class="workFlow">
+                <label>可订库存:</label>
+                <span >{{ item.orderQty }}</span>
+              </div>
+            </p>
+          </li>
+        </ul>
+        <div slot="bottom" class="mint-loadmore-bottom">
+          <span v-show="bottomStatus == 'drop'" :class="{ 'is-rotate': bottomStatus === 'drop' }">↑</span>
+          <span v-show="bottomStatus == 'loading'">
+            <mt-spinner type="snake"></mt-spinner>
+          </span>
+        </div>
+      </mt-loadmore>
+    </div>
+    <!-- 订单列表   end -->
+
+  <!-- 订单审核节点筛选   start -->
+  <div class="chooseWorkFlow" v-show="workFlowFlag" @click="closeQueryWindow()">
+    <mt-radio
+      align="right"
+      v-model="StockCode"
+      :options="workFlowOptions">
+    </mt-radio>
+  </div>
+
+
+  <div class="topQueryPanal" v-show="topQueryPanalFlag">
+    <ul>
+      <li @click="openByworkFlow()">仓库</li>
+    </ul>
+  </div>
+</div>
+</template>
+<script type="text/javascript">
+  import { mapActions, mapGetters, mapState } from 'vuex'
+  import { Button, Header, Search, Indicator, Radio, Loadmore, Spinner } from 'mint-ui'
+  export default {
+    name: 'salesOrderList',
+    components: {
+      'mt-header': Header,
+      'mt-button': Button,
+      'mt-search': Search,
+      'mt-radio': Radio,
+      'mt-loadmore': Loadmore,
+      'mt-spinner': Spinner
+    },
+    data: function(){
+      return {
+        dataList: [],
+        pageNo: 1,
+        pageSize: 10,
+        //库存查询
+        mobileGoodsFullName: '',
+        GoodsCode: '',
+        topQueryPanalFlag: false,
+        StockCode: '',
+        //库存查询end
+        // Loadmore下拉状态变量
+        allLoaded: false,
+          bottomStatus: '',
+          wrapperHeight: 0,
+          salesOrderNoStr: '',
+        // 审核节点 draft notApprove finish
+        workFlowFlag: false,
+        workFlowOptions: [
+        { label: '总仓1',
+          value: '00001'},
+        { label: '总仓2',
+          value: '00002'}]
+      }
+    },
+    computed: {
+      ...mapState({
+      name: state => state.user.name,
+      titleId: state => state.user.titleId,
+      department: state => state.user.departmentName
+    }),
+      ...mapGetters([
+        'today',
+        'fristWeekday',
+        'fristMonthday'
+      ]),
+      tableName () {
+        return 'tblSalesOrder'
+      },
+      ForMatBillDate1: function(){
+        let date = new Date(this.BillDate1)
+        return  date.getFullYear()+'-'+(date.getMonth()+1)+'-'+date.getDate()
+      },
+      ForMatBillDate2: function(){
+        let date = new Date(this.BillDate2)
+        return  date.getFullYear()+'-'+(date.getMonth()+1)+'-'+date.getDate()
+      },
+      opt() {
+        return this.$route.params.opt
+      }
+    },
+    filters: {
+      getBillNo (val) {
+        return val.substring(0,val.indexOf('#'))
+      }
+    },
+    watch: {
+      mobileGoodsFullName: function(newVal) {
+        this.GoodsCode = newVal
+        this.listData()
+      },
+      StockCode: function(newVal) {
+        this.StockCode = newVal
+        this.listData()
+      },
+      $route() {
+        if(this.opt == 'reload'){
+          this.listData()
+        }
+      }
+    },
+    methods: {
+      ...mapActions(['reportQuery', 'popupSelect']),
+      OpenQueryPanal() {
+          
+          if(this.topQueryPanalFlag){
+            this.topQueryPanalFlag = false
+          }else {
+            this.topQueryPanalFlag = true
+          }
+        },
+      listData: function (item) {
+        //每次查询 重置 页码和判断重复的字符串
+        this.pageNo = 1
+        this.salesOrderNoStr = ''
+        let parentCode = ''
+        let isCatalog = ''
+        if(item != undefined){
+          parentCode = item.classCode
+          isCatalog = item.isCatalog
+        }
+        let cond = {
+          reportNumber: 'tblVirtualStock',
+          pageNo: this.pageNo,
+          pageSize: this.pageSize,
+          extraParam: {
+              DataType: 'tblGoods',
+              mobileGoodsFullName:this.mobileGoodsFullName,
+              parentCode: parentCode,
+              StockCode: this.StockCode
+          }
+        }
+        if(isCatalog != '' && isCatalog == 0){
+            return
+        }else{
+            Indicator.open({text: '加载中...', spinnerType: 'snake'})
+            this.reportQuery(cond).then((obj) => {
+            console.log(obj.rows)
+            var self = this
+            Indicator.close()
+            this.dataList = obj.rows
+            this.pageNo = 2 // 向上滑动列表时 从第二页开始查询
+          })
+        }
+      },
+      loadBottom() {
+            if(this.pageNo == 1){
+              Indicator.open({text: '加载中...', spinnerType: 'snake'})
+            }
+            setTimeout(() => {
+              let cond = {
+              reportNumber: 'tblVirtualStock',
+              pageNo: this.pageNo,
+              pageSize: this.pageSize,
+              extraParam: {
+                  DataType: 'tblGoods'
+                  }
+            }
+          var self = this;
+          this.reportQuery(cond).then((obj) => {
+            Indicator.close()
+            this.allLoaded = true;
+            console.log(obj.rows)
+            self.dataList = obj.rows
+          })
+            }, 1500);
+      },
+      initParam() {
+       this.mobileGoodsFullName = ''
+       this.StockCode = ''
+      },
+      openByworkFlow() {
+        this.BillDateFlag = false
+        this.topQueryPanalFlag = false
+        this.workFlowFlag = !this.workFlowFlag
+      },
+      closeQueryWindow() {
+        this.workFlowFlag = false
+        this.BillDateFlag = false
+      },
+      handleBottomChange(status) {
+            this.bottomStatus = status;
+      },
+    },
+    created () {
+      let det = (new Date().getFullYear())+'-'+(new Date().getMonth()+1)+'-'+(new Date().getDate()+1)
+    },
+    mounted() {
+
+        this.wrapperHeight = document.documentElement.clientHeight - this.$refs.wrapper.getBoundingClientRect().top;
+    },
+    deactivated: function() {
+      console.log('deactivated')
+      this.initParam() //离开页面时初始化查询查询条件
+
+    },
+    activated: function () {
+      console.log('activated')
+      this.listData() //每次进入页面重新加载数据
+    }
+  }
+</script>
+<style lang="scss" rel="stylesheet/scss">
+$background-color: #F0F1F5;
+.page_stockreport {  
+  background-color: $background-color;
+  height: 100%;
+    width: 100%;
+    .fontBlue {
+      color: #26a2ff;
+    }
+  .topQueryPanal {
+    position: fixed;
+    top: 40px;
+    width: 100px;
+    height: 100px;
+    background-color: rgba(38, 162, 255, 0.68);
+    right: 10px;
+    color: black;
+    font-weight: 700;
+    text-align: center;
+    letter-spacing: 10px;
+    ul{
+      display: block;
+      width: 100%;
+      height: 100%;
+      li{
+        width: 98%;
+        height:35px;
+        line-height: 35px;
+        border-bottom: 1px solid #dedede;
+      }
+    }
+  }
+  .chooseStatus {
+    position: fixed;
+    top: 77px;
+    left: 0px;
+    height: 100%;
+    width: 100%;
+    background-color: rgba(7,17,27,0.8);
+    z-index: 2000;
+    }
+    .chooseWorkFlow {
+      @extend .chooseStatus;
+    
+    }
+    .chooseBillDate {
+      @extend .chooseStatus;
+      .radioDiv {
+        width: 100%;
+        height: 26%;
+        .mint-radiolist {
+          top: 157px;
+        }
+
+      }
+      .div {
+        padding: 5px 15px;
+        width: 100%;
+        background-color: white;
+        border-bottom: 1px solid #DCDCDC;
+        min-height: 35px;
+        line-height: 35px;
+        input {
+          border: none;
+          text-align: center;
+          width: 35%;
+        }
+      }
+    .Button {
+      text-align: center;
+      position: fixed;
+        top: 357px;
+      button {
+        margin-right: 30px;
+
+      }
+    }
+    }
+    div.mint-radiolist {
+      position: fixed;
+      top: 68px;
+      width: 100%;
+    }
+    .orderList {
+      position: fixed;
+      top: 86px;
+      width: 100%;
+      height: 84%;
+      overflow: auto;
+    .mint-loadmore-bottom {
+      span {
+        display: inline-block;
+        transition: .2s linear;
+        vertical-align: middle;
+        .is-rotate {
+          transform: rotate(180deg);
+        }
+      }
+    }
+    .GoodsFullName {
+      font-weight: 700;
+    }
+    .GoodsFullNameBlue {
+      font-weight: 700;
+      color: blue;
+    }
+    .stockQty {
+      display: inline-block;
+      font-weight: 700;
+    }
+    .workFlow {
+      float: right;
+      display: inline-block;
+      width: 150px;
+      text-align: center;
+      height: 20px;
+      line-height: 20px;
+      font-size: 13px;
+      }
+      .status {
+        @extend .workFlow;
+      }
+
+      ul {
+        overflow-y: auto;
+        height: 100%;
+        li {
+          background-color: white;
+          height: 80px;
+          padding: 10px 20px;
+          margin-bottom: 5px;
+          div { 
+            margin-bottom: 5px;
+            label {
+            font-weight: 700;
+            font-size: 15px;
+            display: inline;
+            }
+          }
+          p {
+            font-size: 15px;
+            font-weight: 400;
+            label {
+              margin-right: 5px;
+            }
+          }
+        }
+      }
+    }
+    .nav_condition {
+      position: fixed;
+      top: 88px;
+      width: 100%;
+      height: 30px;
+      background-color: white;
+      line-height: 30px;
+      ul {
+        display: flex;
+        li {
+          flex: 1;
+          text-align: center;
+          border-right: 1px solid #DCDCDC;
+          font-size: 15px;
+        }
+      }
+    }
+  .mint-header {
+    background-color:white;
+    color: black;
+    border-bottom: 1px solid #DCDCDC;
+    img {
+      width: 30px;
+    }
+    .mint-header-title {
+      font-size: 18px;
+    }
+  }
+  .mint-search {
+    position: fixed;
+      top: 40px;
+      width: 100%;
+      height: 50px;
+      .mint-searchbar{
+        background-color: #ffffff;
+      }
+      .mint-searchbar-inner {
+        height: 18px;
+        background-color: #f0f1f5;
+        border-radius: 5px;
+        .mintui-search {
+          color: #333;
+        }
+        .mint-searchbar-core {
+          background-color: #f0f1f5;
+          text-align: center;
+        }
+      }
+  }
+}
+</style>

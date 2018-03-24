@@ -1,0 +1,635 @@
+<template>
+  <div class="page_wrap">
+    <!-- 顶部 -->
+    <mt-header :title="$route.query.title" fixed>
+      <div slot="left">
+        <mt-button icon="back" @click="goback()">返回</mt-button>
+      </div>
+    </mt-header>
+    <!-- 内容 -->
+    <div class="page_cont detail_page">
+      <!-- 主表内容 -->
+      <div class="main_info">
+        <div class="createInfo">
+          <p class="creatorImg"><img src="../../assets/man.png" alt=""></p>
+          <p class="creatorInfo">
+            <span class="creator">{{values.createByName}}</span>
+            <br>
+            <span class="flowDepictLink" @click="$router.push({path: '/workflow/approveFlowdepict/'})">
+              {{lastWorkFlowNode}}<span style="color:#d9d9d9">&nbsp;&gt;</span>
+            </span>
+            <span class="createTime"></span>
+          </p>
+        </div>
+        <template v-for="field in fieldList">
+          <!-- 输入类型 -->
+          <mt-field v-if="(field.inputType == 0 || field.inputType == 8 ) && field.fieldType != 3 && field.fieldType != 13 " :label="field.display" readonly disableClear :value="values[field.fieldName]"></mt-field>
+
+          <!-- 备注类型 -->
+          <mt-field  v-if="field.inputType == 0 && field.fieldType == 3" type="textarea" rows="4" :label="field.display" readonly disableClear :value="values[field.fieldName]"></mt-field>
+
+          <!-- 单选或者复选-->
+          <mt-field v-if="(field.inputType == 5 || field.inputType == 10) && field.EnumItem !== undefined " :label="field.display" readonly disableClear :value="getEnumName(field.EnumItem, values[field.fieldName])">
+          </mt-field>
+          <!-- 弹窗类型-->
+          <template v-else="field.inputType == 2">
+            <mt-field v-for="field2 in field.PopupDis" v-if="field2.inputType == 2" :label="field2.display" readonly disableClear :value="values[field2.fieldName]"></mt-field>
+          </template>
+          <!-- 关联单据-->
+          <a class="mint-cell mint-field" v-if="field.fieldName === 'ass_OrderId'">
+            <div class="mint-cell-wrapper">
+              <div class="mint-cell-title">
+                <span class="mint-cell-text">关联单据</span>
+              </div>
+              <div class="mint-cell-value">
+                <input type="text" readonly="readonly" class="mint-field-core assOrderBillNo" :value="field.display" @click="assOrder(field.defaultValue,values[field.fieldName],field.display)">
+              </div>
+            </div>
+          </a>
+        </template>
+
+
+        <!-- Magnify 图片组件 start-->
+        <template>
+          <a class="mint-cell" v-show="picUrl != undefined"><!----> 
+            <div class="mint-cell-wrapper">
+              <div class="mint-cell-title"><!----> 
+                <span class="mint-cell-text">图片</span> <!---->
+              </div> 
+            </div> 
+            <div class="container">
+              <div class="image-set">
+                <a data-magnify="gallery"  v-for="pic in picUrl" :data-caption="pic.picName" :href="pic.url">
+                  <img :style="{width:80+'px', height:80+'px'}" :src="pic.url" alt="">
+                </a>
+              </div>
+            </div>
+          </a>
+        </template>
+        <!-- Magnify 图片组件 end-->
+
+        <!-- 附件组件 start-->
+        <template>
+          <a class="mint-cell" v-show="fujianUrl != undefined"><!----> 
+            <div class="mint-cell-wrapper">
+              <div class="mint-cell-title"><!----> 
+                <span class="mint-cell-text">附件</span> <!---->
+              </div> 
+            </div> 
+            <div class="container">
+              <div class="image-set">
+                <a data-magnify="gallery" :data-caption="fj.fujianName" :style="{display: 'block', textDecoration: 'none'}"  v-for="fj in fujianUrl" v-if="fj.fujianName.indexOf('.jpg') > 0 || fj.fujianName.indexOf('.png') > 0"   :href="fj.url">
+                  <img :style="{width:50+'px', height:50+'px'}" :src="fj.url" alt="">
+                  <span class="fj_fujianName">{{fj.fujianName}}</span> 
+                </a> 
+                 <a :style="{display: 'block', textDecoration: 'none'}"  v-for="fj in fujianUrl" v-if="fj.fujianName.indexOf('.jpg') < 0 && fj.fujianName.indexOf('.png') < 0"   :href="fj.url">
+                  <img :style="{width:50+'px', height:50+'px'}" src="../../assets/tongxunlu.png" alt="">
+                  <span class="fj_fujianName">{{fj.fujianName}}</span> 
+                </a>
+              </div>
+            </div>
+          </a>
+        </template>
+         <!-- 附件组件 end-->
+
+      </div>
+      <!-- 明细表内容 -->
+      <template v-for="childTable in childTableList">
+        <div class="detail_info_wrap" v-for="(childTableValues, index) in values[`TABLENAME_${childTable.name}`]">
+          <p class="info_text">{{ childTable.display }}明细{{ index + 1 }}</p>
+          <div class="detail_info">
+            <template v-for="field in childShowField[childTable.name]">
+              <mt-field v-if="field.inputType == 0 || field.inputType == 8" :label="field.display" readonly disableClear :value="childTableValues[field.fieldName]"></mt-field>
+              <mt-field v-if="field.inputType == 1 && field.EnumItem !== undefined && field.EnumItem.filter(item => item.value == childTableValues[field.fieldName]).length > 0" :label="field.display" readonly disableClear :value="field.EnumItem.filter(item => item.value == childTableValues[field.fieldName])[0].name"></mt-field>
+              <mt-field v-if="(field.inputType == 5 || field.inputType == 10) && field.EnumItem !== undefined " :label="field.display" readonly disableClear :value="getEnumName(field.EnumItem, childTableValues[field.fieldName])">
+              </mt-field>
+              <template v-else="field.inputType == 2">
+                <a class="mint-cell mint-field" v-for="field2 in field.PopupDis" v-if="field2.inputType == 2 ">
+                  <div class="mint-cell-wrapper">
+                    <div class="mint-cell-title">
+                      <span class="mint-cell-text">{{field2.display}}</span>
+                    </div>
+                    <div class="mint-cell-value">
+                      <!-- 收款单 -->
+                      <input v-if="field2.fieldName == 'RefbillNo'" type="text" readonly="readonly" class="mint-field-core assOrderBillNo" :value="childTableValues['BillName']" @click="assOrder(childTableValues['ReceiveBillType'],childTableValues['RefbillID'],childTableValues['BillName'])">
+                      <!-- 付款单 -->
+                      <input v-else-if="field2.fieldName == 'RefBillNo'" type="text" readonly="readonly" class="mint-field-core assOrderBillNo" :value="childTableValues[field2.fieldName]" @click="assOrder(childTableValues['PayBillType'],childTableValues['RefbillID'],childTableValues['BillName'])">
+                     <!--  <input v-else type="text" readonly="readonly" class="mint-field-core" :value="childTableValues['BillName']"> -->
+                      <input v-else type="text" readonly="readonly" class="mint-field-core" :value="childTableValues[field2.fieldName]"> 
+                    </div>
+                  </div>
+                </a>
+              </template>
+            </template>
+          </div>
+        </div>
+      </template>
+    </div>
+    <div class="buttonArea">
+      <p class="checkBtn" v-if="checkRight && values.workFlowNode !== '0'" @click="$router.push({name:'deliver', params: {tableName, keyId, opType: 'fallback'}})">回退</p>
+      <p class="checkBtn" v-if="checkRight" @click="$router.push({name:'deliver', params: {tableName, keyId, opType: 'send'}})">转交</p>
+      <p class="checkBtn" v-if="hasCancel" @click="cancel">撤回</p>
+      <p class="checkBtn" v-if="hurryTrans" @click="hurry">催办</p>
+    </div>
+    <!-- 图片放大组件 -->
+    <big-img v-if="showImg" @clickit="viewImg" :imgSrc="imgSrc"></big-img>
+  </div>
+</template>
+<script>
+import { mapActions, mapMutations, mapGetters } from 'vuex'
+import { Toast, Button, Field, Header, DatetimePicker, Indicator, Cell, MessageBox } from 'mint-ui'
+import 'mint-ui/lib/toast/style.css'
+import 'mint-ui/lib/indicator/style.css'
+import 'mint-ui/lib/button/style.css'
+import 'mint-ui/lib/field/style.css'
+import 'mint-ui/lib/header/style.css'
+import 'mint-ui/lib/datetime-picker/style.css'
+import 'mint-ui/lib/cell/style.css'
+import 'mint-ui/lib/message-box/style.css'
+import BigImg from '../workflow/pic.vue';
+
+export default {
+  name: 'approvedet',
+  components: {
+    'mt-button': Button,
+    'mt-field': Field,
+    'mt-header': Header,
+    'mt-datetime-picker': DatetimePicker,
+    'mt-cell': Cell,
+    'big-img': BigImg
+  },
+  data: function() {
+    return {
+      checkRight: false,
+      deleteRight: false,
+      hasCancel: false,
+      hurryTrans: false,
+      retCheckRight: false,
+      updateRight: false,
+      opType: '',
+      childShowField: {},
+      childTableList: [],
+      fieldList: [],
+      flowDepict: [],
+      values: {},
+      picUrl: undefined, // 图片url
+      fujianUrl: undefined, // 附件url
+      showImg: false
+      //affixArr: [],
+      //affixArrStr: '123'
+      // 关联单据字段
+
+
+    }
+  },
+  computed: {
+    tableName() {
+      return this.$route.params.tableName
+    },
+    keyId() {
+      return this.$route.params.keyId
+    },
+    lastWorkFlowNode() {
+      return this.workFlowNode === '0' ? '开始' : this.getCurFlowDepictLast().workFlowNode
+    }
+  },
+  methods: {
+    ...mapActions(['detail', 'hurryTransFunc', 'cancelTo', 'popupSelect']),
+    ...mapMutations(['curFlowDepict']),
+    ...mapGetters(['getCurFlowDepictLast']),
+    test() {
+      alert(1)
+    },
+    goback() {
+      this.$router.push({name: 'approve'})
+    },
+    assOrder(tableName, keyId, templateName) {
+      this.$router.push({ path: `/workflow/assorder/${tableName}/${keyId}?title=${templateName}&opType=detail` })
+      //this.$router.go(0)
+    },
+    clickImg(e) {
+      this.showImg = true;
+      // 获取当前图片地址
+      this.imgSrc = e.currentTarget.src;
+    },
+    viewImg() {
+      this.showImg = false;
+    },
+    feachData() {
+      Indicator.open({ text: '数据拉取中...', spinnerType: 'snake' })
+      let vm = this
+      // 加载数据
+      this.detail({ tableName: this.tableName, keyId: this.keyId }).then(data => {
+        console.log(data)
+        for (let key in vm.$data) {
+          vm.$data[key] = data[key]
+        }
+        vm.curFlowDepict(vm.flowDepict)
+
+        // 处理主表信息
+        vm.fieldList = vm.fieldList.filter(field => field.inputType !== 3 && field.fieldType !== 14 && field.display !== field.fieldName && field.fieldName in vm.$data.values)
+
+        // console.log(vm.fieldList)
+
+        // 处理明细表信息
+        vm.childTableList.forEach(({ name }) => {
+          console.log(name)
+          vm.childShowField[name] = vm.childShowField[name].filter(field => field.inputType !== 100 && field.inputType !== 3 && field.display !== field.fieldName)
+        })
+
+        
+
+        // 收款单的收款账户明细表的账户字段 获取中文名
+        if (vm.values.TABLENAME_tblReceiveAccountDet != undefined) {
+          let AccNameID = vm.values.TABLENAME_tblReceiveAccountDet["0"]["tblAccTypeInfo.AccName"];
+          let cond = {
+            selectName: 'mobile_tblLanguagebyid',
+            extraParam: {
+              langageid: AccNameID
+            }
+          }
+          this.popupSelect(cond).then((obj) => {
+            if (obj != undefined) {
+              vm.values.TABLENAME_tblReceiveAccountDet["0"]["tblAccTypeInfo.AccName"] = obj["0"].zhcn
+            }
+          })
+
+        } else if (vm.values.TABLENAME_tblPayAccountDet != undefined) {
+          let AccNameID = vm.values.TABLENAME_tblPayAccountDet["0"]["tblAccTypeInfo.AccName"];
+          let cond = {
+            selectName: 'mobile_tblLanguagebyid',
+            extraParam: {
+              langageid: AccNameID
+            }
+          }
+          this.popupSelect(cond).then((obj) => {
+            if (obj != undefined) {
+              vm.values.TABLENAME_tblPayAccountDet["0"]["tblAccTypeInfo.AccName"] = obj["0"].zhcn
+            }
+          })
+        }
+
+        // 图片处理 ------------------start-------------------
+        let BaseUrl =  'http://119.29.172.29:8008'
+
+        let tblName = ''
+        vm.fieldList.forEach((obj, index) => {
+          tblName = obj.tableName
+          if (obj.fieldName == 'tupian' && vm.values.tupian.length > 0) {
+            let picName = vm.values.tupian.split(";")
+
+            let picArr = new Array()
+            picName.forEach((pic, index) => {
+              let url = '/ReadFile.jpg?fileName=' + pic + '&realName=' + pic + '&text-alignmpFile=false&type=PIC&tableName=' + tblName
+             
+             //Hbuilder 打包apk时启用
+            // let url = BaseUrl+'/1ReadFile.jpg?fileName=' + pic + '&realName=' + pic + '&text-alignmpFile=false&type=PIC&tableName=' + tblName
+              let picObj = { 'picName': picName, 'url': url }
+              picArr.push(picObj)
+            })
+            vm.$data.picUrl = picArr
+          }
+
+        })
+        // 图片处理 ------------------end-------------------
+
+
+        // 附件处理 ------------------start-------------------
+
+        let fujianName = vm.values.Attachment.split(";")
+        // console.log(vm.values)
+        let fujianArr = new Array()
+        fujianName.forEach((fujianName, index) => {
+          if(fujianName.length > 0){
+             let url = '/ReadFile.jpg?fileName=' + fujianName + '&realName=' + fujianName + '&tempFile=false&type=AFFIX&tableName=' + tblName
+           
+           //Hbuilder 打包apk时启用
+         //  let url = BaseUrl+'/ReadFile.jpg?fileName=' + fujianName + '&realName=' + fujianName + '&tempFile=false&type=AFFIX&tableName=' + tblName
+
+            let fujianObj = { 'fujianName': fujianName, 'url': url }
+            fujianArr.push(fujianObj)
+          }
+
+        })
+        
+
+         // 获取审核流中的附件
+        let cond1 = {
+          selectName: 'mobile_OAaffix',
+          extraParam: {
+            fref: this.keyId
+          }
+        }
+
+
+        this.popupSelect(cond1).then((obj) => {
+          if (obj != undefined) { 
+            this.affixArrStr = ''
+            obj.forEach((o, index) => {
+              if(o.affix != undefined && o.affix.length > 0 && o.affix != ''){
+                this.affixArrStr += o.affix
+              }
+            })
+            this.affixArr = this.affixArrStr.split(';')
+
+            this.affixArr.forEach((fujianName, index) => {
+              if(fujianName.length > 0){
+                //let url = '/ReadFile.jpg?fileName=' + fujianName + '&realName=' + fujianName + '&tempFile=false&type=AFFIX&tableName=' + tblName
+                
+                // Hbuilder 打包APK时启用
+                let url = BaseUrl+'/ReadFile.jpg?fileName=' + fujianName + '&realName=' + fujianName + '&tempFile=false&type=AFFIX&tableName=' + tblName
+
+                let fujianObj = { 'fujianName': fujianName, 'url': url }
+                fujianArr.push(fujianObj)
+              }
+
+            })
+          }
+        })
+        if(fujianArr.length > 0){
+          vm.$data.fujianUrl = fujianArr
+        }
+        console.log(vm.$data.fujianUrl)
+        // 附件处理 ------------------end-------------------
+
+
+        Indicator.close()
+      }).catch(({ message }) => {
+        Indicator.close()
+        // Toast({ message: message, duration: 1000 })
+      })
+    },
+    hurry() {
+      let vm = this
+      let _title = vm.$route.query.title
+      MessageBox({
+        title: '提示',
+        message: '请输入催办信息',
+        showCancelButton: true,
+        showInput: true,
+        inputValue: '有' + _title + '需要你审核，请查看',
+        $type: 'confirm'
+      })
+      .then(({ value: content, action }) => {
+        Indicator.open({ text: '催办中...', spinnerType: 'snake' })
+        vm.hurryTransFunc({ tableName: vm.tableName, keyId: vm.keyId, content }).then(message => {
+          Indicator.close()
+          Toast({ message, duration: 1000 })
+        }).catch(message => {
+          Indicator.close()
+          Toast({ message, duration: 1000 })
+        })
+      })
+    },
+    cancel() {
+      let vm = this
+      MessageBox.confirm('确定要撤回此单据?').then(action => {
+        Indicator.open({ text: '撤回中...', spinnerType: 'snake' })
+        vm.cancelTo({ tableName: vm.tableName, keyId: vm.keyId }).then(message => {
+          vm.fetchData()
+          Indicator.close()
+          Toast({ message, duration: 1000 })
+        }).catch(message => {
+          Indicator.close()
+          Toast({ message, duration: 1000 })
+        })
+      })
+    },
+    getEnumName(enums, value) {
+      let valuesObj = {}
+      value.split(',').forEach(item => {
+        valuesObj[item] = item
+      })
+      let result = ''
+      enums.forEach(item => {
+        if (valuesObj[item.value]) {
+          result += item.name
+        }
+      })
+      window.console.log(result)
+      return result
+    }
+  },
+  filters: {
+    getzhcnbyid(val) {
+      return '李总'
+    }
+  },
+  watch: {
+    '$route' (to, from) {
+      // 如果从我的工作流页面进来，就要重新拉取数据
+      if (from.name === 'approve' && to.name === 'approvedetDefault') {
+        this.feachData()
+      }
+    }
+  },
+  created() {
+    this.feachData()
+  },
+  mounted() {
+    console.log(this.affixArrStr)
+  },
+  deactivated: function() { //离开页面时执行的方法
+  console.log('deactivated')
+  this.picUrl = undefined
+  this.fujianUrl = undefined
+
+  },
+  activated: function () { //进入页面时执行的方法
+    this.feachData() //每次进入页面重新加载数据
+  }
+}
+
+</script>
+<style>
+.mint-msgbox-input input {
+  height: 26px;
+}
+
+.main_info .mint-cell-title {
+  min-width: 100px;
+}
+
+</style>
+<!-- Magnify 图片组件 -->
+<style lang="scss" rel="stylesheet/scss">@import "../../assets/css/jquery.magnify.css";</style>
+<style lang="scss" rel="stylesheet/scss" scoped>
+$background-color: #F0F1F5;
+$background-color-block: #fff;
+$p-text-color: #BABABA;
+$p-text-color-light: #26A2FF;
+.page_wrap {
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  background: $background-color;
+  .fj_fujianName {
+    color: #333;
+  }
+  .page_cont.detail_page {
+    padding: 40px 0 60px 0;
+    height: 100%;
+    box-sizing: border-box;
+    overflow-y: auto;
+    overflow-x: hidden;
+    background: $background-color;
+    .assOrderBillNo {
+      font-weight: 700;
+      color: blue;
+    }
+    .main_info,
+    .detail_info {
+      padding: 0 1rem;
+      background: $background-color-block;
+      margin-bottom: 1rem;
+    }
+    .main_info {
+      margin-bottom: 0;
+      .pic {
+        // 图片样式 ------start--------
+        width: 100%;
+        min-height: 160px;
+        border-bottom: 1px solid #e8e8e8;
+        .pic_lable {
+          display: inline-block;
+          width: 20%;
+          height: 100%;
+          line-height: 100px;
+          float: left;
+          padding-left: 10px;
+        }
+        .pic_tupian {
+          display: inline-block;
+          width: 60%;
+          height: 100%;
+          padding-left: 27px;
+          border-bottom: 1px solid #e8e8e8;
+          img {
+            margin-top: 5px;
+            border: 2px solid #A9A9A9;
+            height: 100%;
+            width: 100%;
+          }
+        }
+      } // 图片样式 ------end--------
+      // 附件样式 ------start--------
+      .fujian {
+        width: 100%;
+        min-height: 60px;
+        margin-top: 20px;
+        border-bottom: 1px solid #e8e8e8;
+        .fujian_lable {
+          display: inline-block;
+          width: 20%;
+          height: 100%;
+          float: left;
+          padding-left: 10px;
+        }
+        .fujian_url {
+          display: inline-block;
+          width: 60%;
+          height: 100%;
+          padding-left: 27px;
+          .fujian_a {
+            margin-bottom: 10px;
+          }
+        }
+      } // 附件样式 ------end--------
+      .createInfo {
+        background-image: -webkit-linear-gradient(top, #d9d9d9, #d9d9d9 50%, transparent 50%);
+        background-image: linear-gradient(180deg, #d9d9d9, #d9d9d9 50%, transparent 50%);
+        background-size: 120% 1px;
+        background-repeat: no-repeat;
+        background-position: top left;
+        background-origin: content-box;
+        font-size: 16px;
+        padding: 0 10px;
+        width: 100%;
+        height: 60px;
+        position: relative;
+        overflow: hidden;
+        .creatorImg {
+          position: absolute;
+          width: 40px;
+          height: 40px;
+          background-color: gray;
+          border-radius: 20px;
+          margin: 10px 16px 10px 0;
+          img {
+            width: 100%;
+            height: 100%;
+            border: 0;
+            border-radius: 50%;
+          }
+        }
+        .creatorInfo {
+          box-sizing: border-box;
+          height: 40px;
+          margin: 10px 0 10px 56px;
+          .creator {
+            font-weight: bolder;
+          }
+          .flowDepictLink,
+          .createTime {
+            display: inline-block;
+            font-size: smaller;
+          }
+          .flowDepictLink {
+            color: #26A2FF;
+            min-width: 100px;
+          }
+          .createTime {
+            right: 16px;
+          }
+        }
+      }
+    }
+    .detail_info {
+      margin-bottom: 0;
+    }
+    p.info_text {
+      font-size: 14px;
+      color: $p-text-color;
+      padding: 1.2rem 1.5rem 0.5rem;
+      position: relative;
+      span {
+        position: absolute;
+        right: 1.5rem;
+        color: $p-text-color-light;
+      }
+    }
+  }
+  .buttonArea {
+    border-top: #e8e8e8 solid 1px;
+    bottom: 0;
+    right: 0;
+    left: 0;
+    position: fixed;
+    z-index: 1;
+    height: 40px;
+    line-height: 40px;
+    background-image: -webkit-linear-gradient(top, #d9d9d9, #d9d9d9 50%, transparent 50%);
+    background-image: linear-gradient(180deg, #d9d9d9, #d9d9d9 50%, transparent 50%);
+    background-size: 120% 1px;
+    background-repeat: no-repeat;
+    background-position: top left;
+    background-origin: content-box;
+    padding: 5px 0;
+    background: #fff;
+    text-align: center;
+    .checkBtn {
+      color: #26A2FF;
+      font-size: larger;
+      width: 49%;
+      display: inline-block;
+    }
+    .checkBtn:nth-last-child(2) {
+      border-right: 1px solid #7c8192;
+    }
+  }
+  .mint-header-title {
+    font-size: 18px;
+  }
+}
+
+</style>

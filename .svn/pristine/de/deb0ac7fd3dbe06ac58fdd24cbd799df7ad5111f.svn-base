@@ -1,0 +1,306 @@
+<template>
+  <div class="index_page">
+    <div class="page_top">
+      <div class="part_one">
+        <img src="../assets/headPic.png" alt="" class="head_pic">
+        <div class="my_info">
+          <div class="greeting">
+            <em v-if="imgType === 'sun'">
+              <img src="../assets/sun.png"/>
+            </em>
+            <em v-else-if="imgType === 'tea'">
+              <img src="../assets/tea.png"/>
+            </em>
+            <em v-else="imgType === 'moon'">
+              <img src="../assets/moon.png"/>
+            </em>
+            <span>{{greetingWord}}</span>
+          </div>
+          <p class="my_name">{{name}}</p>
+        </div>
+      </div>
+      <div class="part_two">
+        <div class="depart">
+          <img src="../assets/departPic.png" alt="">
+          <span>{{title}}</span>
+        </div>
+        <div class="oval">
+          <img src="../assets/Oval.png" alt="">
+          <span>{{department}}</span>
+        </div>
+      </div>
+    </div>
+    <div class="workbench">
+      <!--  OA-->
+      <p class="title">OA</p>
+      <ul class="workBlock" id="workBlock_OA">
+        <li @click="$router.push({name: 'approve'})">
+          <div>
+            <img src="../assets/allmenu.png" alt="">
+            <p>流程审批</p>
+          </div>
+        </li>
+        <li @click="$router.push({name: 'contactList'})">
+          <div>
+            <img src="../assets/dt-company.png" alt="">
+            <p>内部通讯</p>
+          </div>
+        </li>
+        <li @click="$router.push({name: 'workflowLeaveorder'})">
+          <div>
+            <img src="../assets/CRM/crm-contacts.png" alt="">
+            <p>请假申请</p>
+          </div>
+        </li>
+        <li @click="$router.push({name: 'workflowExpenseaccount'})">
+          <div>
+            <img src="../assets/finance.png" alt="">
+            <p>费用报销</p>
+          </div>
+        </li>
+        <li @click="$router.push({name: 'workflowOutleave'})">
+          <div>
+            <img src="../assets/Gression@2x.png" alt="">
+            <p>外出申请</p>
+          </div>
+        </li>
+      </ul>
+      <!--CRM  -->
+      <p class="title">CRM</p>
+      <ul class="workBlock" id="workBlock_CRM">
+        <li @click="$router.push({name: 'cardscanlist'})">
+          <div>
+            <img src="../assets/administration.png" alt="">
+            <p>名片管理</p>
+          </div>
+        </li>
+        <li @click="$router.push({name: 'CRMClientInfo'})">
+          <div>
+            <img src="../assets/cooperation.png" alt="">
+            <p>客户管理</p>
+          </div>
+        </li>
+        <li @click="$router.push({name: 'OutAttendance'})">
+          <div>
+            <img src="../assets/Dayoff@2x.png" alt="">
+            <p>客户拜访</p>
+          </div>
+        </li>
+      </ul>
+      <!-- ERP -->
+      <p class="title">ERP</p>
+      <ul class="workBlock" id="workBlock_ERP">
+<!--          <li @click="$router.push({name: 'mytest'})">
+          <div>
+            <img src="../assets/Bill@2x.png" alt="">
+            <p>测试</p>
+          </div>
+        </li> -->
+<!--         <li @click="$router.push({name: 'stockReport'})">
+          <div>
+            <img src="../assets/company.png" alt="">
+            <p>库存查询</p>
+          </div>
+        </li>  -->
+        <!--   <li  @click="$router.push({name: 'time'})">
+          <div>
+            <img src="../assets/r6.png" alt="">
+            <p>对账单</p>
+          </div>
+        </li>  -->
+      </ul>
+    </div>
+  </div>
+</template>
+<script>
+import { mapActions, mapState } from 'vuex'
+export default {
+  name: 'index',
+  data() {
+    return {
+      greetingWord: '早上好',
+      imgType: 'sun',
+      titleEnum: []
+    }
+  },
+  computed: {
+    ...mapState({
+      name: state => state.user.name,
+      titleId: state => state.user.titleId,
+      department: state => state.user.departmentName
+    }),
+    title() {
+      let index = this.titleEnum.findIndex(item => item.value === this.titleId)
+      return index !== -1 ? this.titleEnum[index].name : ''
+    }
+  },
+  methods: {
+    'getName' () {
+      var name = JSON.parse(window.localStorage.getItem('user')).name
+      this.name = name
+    },
+    'greeting' () {
+      var hour = (new Date()).getHours()
+      if (hour < 12) {
+        this.greetingWord = '早上好'
+        this.imgType = 'sun'
+      } else if (hour >= 12 && hour < 19) {
+        this.greetingWord = '下午好'
+        this.imgType = 'tea'
+      } else {
+        this.greetingWord = '晚上好'
+        this.imgType = 'moon'
+      }
+    },
+    ...mapActions(['getSessEmp', 'getEnum'])
+  },
+  mounted() {
+    var crmli = document.getElementById('workBlock_CRM').getElementsByTagName('li')
+    var oali = document.getElementById('workBlock_OA').getElementsByTagName('li')
+    var erpli = document.getElementById('workBlock_ERP').getElementsByTagName('li')
+  },
+  activated() {
+    this.getSessEmp().then(() => {
+      if (this.titleEnum.length === 0) {
+        this.getEnum('duty').then(titleEnum => {
+          titleEnum.forEach(item => {
+            this.titleEnum.push(item)
+          })
+        })
+      }
+    })
+    this.greeting()
+  }
+}
+
+</script>
+<style lang="scss" rel="stylesheet/scss" scoped>
+$font-color: #7e7e7e;
+$background:#f0f0f0;
+.index_page {
+  min-height: 100%;
+  width: 100%;
+  background: $background;
+  .page_top {
+    background: #fff;
+    overflow: hidden;
+    box-sizing: border-box;
+    padding: 20px 15px 0;
+    .part_one {
+      height: 65px;
+      padding-bottom: 15px;
+      border-bottom: 1px solid #e8e8e8;
+      .head_pic {
+        width: 65px;
+        float: left;
+      }
+      .my_info {
+        float: left;
+        margin-left: 20px;
+        .my_name {
+          font-size: 26px;
+          margin-top: 5px;
+        }
+      }
+      .greeting {
+        width: 100%;
+        float: right;
+        position: relative;
+        color: $font-color;
+        font-size: 14px;
+        left: 20px;
+        margin: 7px 0 4px 0;
+        em {
+          display: block;
+          height: 16px;
+          width: 16px;
+          position: absolute;
+          left: -20px;
+          top: 1px;
+          img {
+            width: 100%;
+          }
+        }
+      }
+    }
+    .part_two {
+      height: 30px;
+      padding: 12px 12px 18px;
+      overflow: hidden;
+      >div {
+        float: left;
+        width: 50%;
+        box-sizing: border-box;
+        overflow: hidden;
+        img {
+          width: 30px;
+          float: left;
+        }
+        span {
+          display: inline-block;
+          height: 30px;
+          line-height: 30px;
+          float: left;
+          margin-left: 8px;
+          max-width: 90px;
+          overflow: hidden;
+          text-overflow: ellipsis;
+          white-space: nowrap;
+          @media screen and (min-width: 360px) {
+            max-width:114px;
+          }
+          @media screen and (min-width:400px) {
+            max-width: 130px;
+          }
+        }
+      }
+    }
+  }
+  .workbench {
+    width: 100%;
+    height: 80%;
+    position: fixed;
+    background-color: white;
+    overflow: auto;
+    .title {
+      padding-left: 10px;
+      font-size: 14px;
+      margin-top: 2px;
+      height: 25px;
+      line-height: 25px;
+      background-color: #f0f0f0;
+    }
+    ul {
+      overflow: hidden;
+      list-style: none;
+      max-width: 612px;
+      margin: 0 auto;
+      height: auto;
+      li {
+        // border-radius:5px;
+        float: left;
+        width: 33%; // background:#fff;
+        height: auto;
+        margin-bottom: 2px;
+        box-sizing: border-box;
+        position: relative;
+        div {
+          margin-left: 30px;
+          width: 60%;
+          text-align: center;
+          padding-top: 10px;
+          img {
+            width: 50%;
+          }
+          p {
+            margin-top: 8px;
+            font-weight: 700;
+            font-size: 14px;
+          }
+        }
+      }
+    }
+  }
+}
+
+</style>

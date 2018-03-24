@@ -1,0 +1,53 @@
+// see http://vuejs-templates.github.io/webpack for documentation.
+var path = require('path')
+
+ //var targetUrl = 'http://erp.haferd.com.cn:8000' // 代理资源路径
+ //var targetUrl = 'http://localhost:8000' // 代理资源路径
+//var targetUrl = 'http://localhost:8888' // 代理资源路径
+
+var targetUrl =  'http://119.29.172.29:8008'
+
+module.exports = {
+  build: {
+    env: require('./prod.env'),
+    index: path.resolve(__dirname, '../dist/index.html'), // 打包时首页存放的目录
+    assetsRoot: path.resolve(__dirname, '../dist'), // 打包时编译文件存放的根目录
+    assetsSubDirectory: 'static', // 打包时编译文件存放的二级目录
+    assetsPublicPath: './', // 编译文件引用的根路径
+    productionSourceMap: true,
+    // Gzip off by default as many popular static hosts such as
+    // Surge or Netlify already gzip all static assets for you.
+    // Before setting to `true`, make sure to:
+    // npm install --save-dev compression-webpack-plugin
+    productionGzip: false,
+    productionGzipExtensions: ['js', 'css']
+  },
+  dev: {
+    env: require('./dev.env'),
+    port: '8002',
+    assetsSubDirectory: 'static',
+    assetsPublicPath: '/',
+    //  使用http-proxy-middleware中间件代理请求到AIO后台，处理跨域的问题(开发时使用)
+    proxyTable: {
+      '/MobileAjax': {
+         target: targetUrl, // 哈佛ERP
+        changeOrigin: true
+      },
+      // 代理静态资源
+      '/mobile/static/config/**': {
+        target: targetUrl,
+        changeOrigin: true
+      },
+      '/ReadFile.jpg': {
+        target: targetUrl,
+        changeOrigin: true
+      },
+      '/UploadServlet.jpg': {
+        target: targetUrl,
+        changeOrigin: true
+      }
+    },
+
+    cssSourceMap: false
+  }
+}
